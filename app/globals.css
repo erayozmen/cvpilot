@@ -1,0 +1,112 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS Custom Properties ─────────────────────────────────────────────────── */
+:root {
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --color-ink: #1a1a2e;
+  --color-ink-soft: #2d2d44;
+  --color-ink-muted: #6b6b8a;
+  --color-paper: #f8f7f4;
+  --color-paper-warm: #fffef9;
+  --color-paper-border: #e8e5de;
+  --color-accent: #c4783a;
+  --color-accent-light: #d4924f;
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-weight: 300;
+  line-height: 1.7;
+}
+
+/* ─── Typography ─────────────────────────────────────────────────────────────── */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-ink);
+}
+
+/* ─── Focus rings ────────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--color-paper-border); }
+::-webkit-scrollbar-thumb { background: var(--color-ink-muted); border-radius: 3px; }
+
+/* ─── Utility classes ────────────────────────────────────────────────────────── */
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg
+           bg-ink text-paper font-sans font-normal text-sm tracking-wide
+           transition-all duration-200 hover:bg-ink-soft active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg
+           border border-paper-border text-ink-muted font-sans font-normal text-sm
+           transition-all duration-200 hover:border-ink hover:text-ink
+           active:scale-[0.98];
+  }
+
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg
+           bg-accent text-white font-sans font-normal text-sm tracking-wide
+           transition-all duration-200 hover:bg-accent-light active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-lg border border-paper-border bg-paper-warm
+           text-ink font-sans text-sm placeholder:text-ink-muted/60
+           transition-all duration-150
+           focus:outline-none focus:border-ink focus:ring-1 focus:ring-ink/20
+           shadow-input;
+  }
+
+  .textarea-field {
+    @apply input-field resize-none leading-relaxed;
+  }
+
+  .label-text {
+    @apply block text-xs font-sans font-normal tracking-widest uppercase
+           text-ink-muted mb-1.5;
+  }
+
+  .card {
+    @apply bg-paper-warm border border-paper-border rounded-xl shadow-card;
+  }
+
+  .page-container {
+    @apply max-w-5xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .section-title {
+    @apply font-display text-2xl text-ink;
+  }
+}

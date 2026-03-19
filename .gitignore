@@ -1,0 +1,22 @@
+# dependencies
+node_modules
+
+# next.js build
+.next
+out
+
+# environment variables (ÇOK KRİTİK)
+.env.local
+.env
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# system files
+.DS_Store
+Thumbs.db
+
+# misc
+.vercel
