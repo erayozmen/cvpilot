@@ -6,21 +6,11 @@ import { getOrCreateProfile, incrementAiUsage } from "@/lib/actions/profile";
 import { canUseAI } from "@/lib/plan";
 import type { AiFeature, AiGenerateResult, ResumeData } from "@/lib/types";
 
-// ─── OpenAI client (server-only) ─────────────────────────────────────────────
-// This file is "use server" — it never runs in the browser.
-// The API key is read from environment variables and is never sent to the client.
-
 function getOpenAIClient(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not set in environment variables.");
-  }
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set in environment variables.");
   return new OpenAI({ apiKey });
 }
-
-// ─── Rate limiting (in-memory, per deployment instance) ──────────────────────
-// Simple request timestamp map keyed by user ID.
-// Prevents a user from hammering the API faster than once per 5 seconds.
 
 const lastRequestTime = new Map<string, number>();
 const RATE_LIMIT_MS = 5_000;
@@ -33,13 +23,7 @@ function checkRateLimit(userId: string): boolean {
   return true;
 }
 
-// ─── Prompt builders ──────────────────────────────────────────────────────────
-
-function buildSummaryPrompt(
-  resume: ResumeData,
-  jobTitle: string,
-  companyName?: string
-): string {
+function buildSummaryPrompt(resume: ResumeData, jobTitle: string, companyName?: string): string {
   return `You are a professional CV writer. Write a concise, compelling professional summary for a CV.
 
 Candidate details:
@@ -60,11 +44,7 @@ Requirements:
 - Do NOT include headers or labels — just the summary text itself`;
 }
 
-function buildWorkExperiencePrompt(
-  resume: ResumeData,
-  jobTitle: string,
-  companyName?: string
-): string {
+function buildWorkExperiencePrompt(resume: ResumeData, jobTitle: string, companyName?: string): string {
   return `You are a professional CV writer. Rewrite and improve the work experience section below.
 
 Target job title: ${jobTitle}
@@ -84,11 +64,7 @@ Requirements:
 - Output only the improved work experience text, no labels or headers`;
 }
 
-function buildCoverLetterPrompt(
-  resume: ResumeData,
-  jobTitle: string,
-  companyName?: string
-): string {
+function buildCoverLetterPrompt(resume: ResumeData, jobTitle: string, companyName?: string): string {
   const company = companyName || "the company";
   return `You are a professional career coach. Write a compelling, personalised cover letter.
 
@@ -115,25 +91,24 @@ Requirements:
 - Keep it under 350 words`;
 }
 
-// ─── Core generate function ───────────────────────────────────────────────────
-
 async function generateWithOpenAI(prompt: string): Promise<string> {
+  // Test modu: .env.local'de OPENAI_TEST_MODE=true ise gerçek API çağrısı yapma
+  if (process.env.OPENAI_TEST_MODE === "true") {
+    return "Bu bir test çıktısıdır. Gerçek API çağrısı yapılmadı.";
+  }
+
   const openai = getOpenAIClient();
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4.1-mini",       // fast + cost-effective for CV tasks
+    model: "gpt-4o-mini",
     max_tokens: 800,
     temperature: 0.7,
     messages: [
       {
         role: "system",
-        content:
-          "You are an expert CV and cover letter writer with 15 years of experience helping candidates land jobs at top companies. Your writing is clear, professional, and tailored to the specific role.",
+        content: "You are an expert CV and cover letter writer with 15 years of experience helping candidates land jobs at top companies. Your writing is clear, professional, and tailored to the specific role.",
       },
-      {
-        role: "user",
-        content: prompt,
-      },
+      { role: "user", content: prompt },
     ],
   });
 
@@ -142,35 +117,22 @@ async function generateWithOpenAI(prompt: string): Promise<string> {
   return content;
 }
 
-// ─── Main server action ───────────────────────────────────────────────────────
-
 export async function generateAiContent(
   feature: AiFeature,
   jobTitle: string,
   companyName: string
 ): Promise<AiGenerateResult> {
-  // 1. Auth check — user must be logged in
   const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
     return { success: false, error: "You must be logged in to use AI features." };
   }
 
-  // 2. Rate limit check
   if (!checkRateLimit(user.id)) {
-    return {
-      success: false,
-      error: "Please wait a few seconds before generating again.",
-    };
+    return { success: false, error: "Please wait a few seconds before generating again." };
   }
 
-  // 2b. Plan & kullanım kontrolü
-  // Şu an yumuşak kontrol — engellemez, sadece uyarır.
-  // OpenAI entegre edilince canUseAI() false dönünce hard block eklenecek.
   const profile = await getOrCreateProfile();
   if (profile && !canUseAI(profile.plan, profile.ai_usage_count)) {
     return {
@@ -179,12 +141,10 @@ export async function generateAiContent(
     };
   }
 
-  // 3. Input validation
   if (!jobTitle?.trim()) {
     return { success: false, error: "Please enter a target job title first." };
   }
 
-  // 4. Fetch resume data from DB (always use server-side data, not client payload)
   const { data: resume, error: resumeError } = await supabase
     .from("resumes")
     .select("*")
@@ -192,13 +152,9 @@ export async function generateAiContent(
     .single();
 
   if (resumeError || !resume) {
-    return {
-      success: false,
-      error: "Please save your CV data first before generating AI content.",
-    };
+    return { success: false, error: "Please save your CV data first before generating AI content." };
   }
 
-  // 5. Build the right prompt
   let prompt: string;
   try {
     switch (feature) {
@@ -218,57 +174,36 @@ export async function generateAiContent(
     return { success: false, error: "Failed to build prompt." };
   }
 
-  // 6. Call OpenAI
   try {
     const content = await generateWithOpenAI(prompt);
-    // Başarılı üretimde kullanım sayısını artır (hata olsa da devam et)
     await incrementAiUsage().catch((e) => console.error("incrementAiUsage hatası:", e));
     return { success: true, content };
   } catch (err) {
     console.error("OpenAI error:", err);
-
-    // Surface a friendly message — never leak raw API errors to client
     const message =
       err instanceof Error && err.message.includes("API key")
         ? "OpenAI API key is not configured. Please check your .env.local file."
         : "AI generation failed. Please try again in a moment.";
-
     return { success: false, error: message };
   }
 }
-
-// ─── Optional: apply AI content directly to saved resume ─────────────────────
-// Called only when the user clicks "Apply to CV" in the UI.
 
 export async function applyAiToResume(
   field: "summary" | "work_experience",
   content: string
 ): Promise<AiGenerateResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  if (authError || !user) {
-    return { success: false, error: "You must be logged in." };
-  }
-
-  if (!content?.trim()) {
-    return { success: false, error: "No content to apply." };
-  }
+  if (authError || !user) return { success: false, error: "You must be logged in." };
+  if (!content?.trim()) return { success: false, error: "No content to apply." };
 
   const { error } = await supabase
     .from("resumes")
-    .update({
-      [field]: content.trim(),
-      updated_at: new Date().toISOString(),
-    })
+    .update({ [field]: content.trim(), updated_at: new Date().toISOString() })
     .eq("user_id", user.id);
 
-  if (error) {
-    return { success: false, error: "Failed to apply content to your CV." };
-  }
+  if (error) return { success: false, error: "Failed to apply content to your CV." };
 
   return { success: true, content: "Applied successfully." };
 }
