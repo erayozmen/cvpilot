@@ -121,7 +121,7 @@ async function generateWithOpenAI(prompt: string): Promise<string> {
   const openai = getOpenAIClient();
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",       // fast + cost-effective for CV tasks
+    model: "gpt-4.1-mini",       // fast + cost-effective for CV tasks
     max_tokens: 800,
     temperature: 0.7,
     messages: [
