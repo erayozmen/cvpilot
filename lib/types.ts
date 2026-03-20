@@ -72,3 +72,13 @@ export interface PlanInfo {
   isProUser: boolean;
   canUseAI: boolean;
 }
+
+// ─── Stripe / Abonelik ───────────────────────────────────────────────────────
+
+export interface StripeSubscription {
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  stripe_price_id: string | null;
+  subscription_status: string | null;  // active | canceled | past_due | ...
+  current_period_end: string | null;
+}

@@ -4,10 +4,11 @@ import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { saveResume } from "@/lib/actions/resume";
 import AiPanel from "@/components/ai-panel";
-import type { ResumeData } from "@/lib/types";
+import type { ResumeData, PlanInfo } from "@/lib/types";
 
 interface CvFormProps {
   initialData: ResumeData | null;
+  planInfo?: PlanInfo | null;
 }
 
 // ─── Validasyon kuralları ─────────────────────────────────────────────────────
@@ -243,7 +244,7 @@ function ProgressBar({ pct }: { pct: number }) {
 
 // ─── Ana form bileşeni ────────────────────────────────────────────────────────
 
-export default function CvForm({ initialData }: CvFormProps) {
+export default function CvForm({ initialData, planInfo }: CvFormProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -594,7 +595,7 @@ export default function CvForm({ initialData }: CvFormProps) {
           <ProgressBar pct={completion} />
 
           {/* AI Paneli */}
-          <AiPanel />
+          <AiPanel planInfo={planInfo} resumeId={initialData?.id} />
 
           {/* İpuçları */}
           <div className="card p-6">

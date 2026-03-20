@@ -9,7 +9,11 @@ export const metadata = {
   title: "Dashboard — CVPilot",
 };
 
-export default async function DashboardPage() {
+interface Props {
+  searchParams: Promise<{ upgrade?: string }>;
+}
+
+export default async function DashboardPage({ searchParams }: Props) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -17,7 +21,9 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/login");
 
-  // Paralel çek — birini beklerken diğeri de yüklensin
+  const params = await searchParams;
+  const upgradeStatus = params.upgrade ?? null;
+
   const [resumes, planInfo] = await Promise.all([
     getAllResumes(),
     getPlanInfo(),
@@ -26,7 +32,12 @@ export default async function DashboardPage() {
   return (
     <>
       <Navbar user={user} />
-      <DashboardShell user={user} resumes={resumes} planInfo={planInfo} />
+      <DashboardShell
+        user={user}
+        resumes={resumes}
+        planInfo={planInfo}
+        upgradeStatus={upgradeStatus}
+      />
     </>
   );
 }

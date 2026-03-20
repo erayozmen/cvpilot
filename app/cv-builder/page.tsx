@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
 import { getResumeById } from "@/lib/actions/resume";
+import { getPlanInfo } from "@/lib/actions/profile";
 import Navbar from "@/components/navbar";
 import CvForm from "@/components/cv-form";
 
@@ -22,7 +23,11 @@ export default async function CvBuilderPage({ searchParams }: Props) {
   if (!user) redirect("/login");
 
   const params = await searchParams;
-  const resume = params.id ? await getResumeById(params.id) : null;
+
+  const [resume, planInfo] = await Promise.all([
+    params.id ? getResumeById(params.id) : Promise.resolve(null),
+    getPlanInfo(),
+  ]);
 
   const isEditing = !!resume;
 
@@ -31,9 +36,7 @@ export default async function CvBuilderPage({ searchParams }: Props) {
       <Navbar user={user} />
 
       <main className="page-container py-10 md:py-14">
-        {/* Üst başlık */}
         <div className="mb-8">
-          {/* Geri linki */}
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-1.5 font-sans text-xs text-ink-muted hover:text-ink transition-colors mb-5"
@@ -48,9 +51,7 @@ export default async function CvBuilderPage({ searchParams }: Props) {
                 {isEditing ? "CV Düzenle" : "Yeni CV"}
               </div>
               <h1 className="font-display text-3xl md:text-4xl text-ink">
-                {isEditing
-                  ? resume.title || "CV Düzenle"
-                  : "Yeni CV Oluştur"}
+                {isEditing ? resume.title || "CV Düzenle" : "Yeni CV Oluştur"}
               </h1>
               {isEditing && (
                 <p className="font-sans text-sm text-ink-muted mt-1">
@@ -59,7 +60,6 @@ export default async function CvBuilderPage({ searchParams }: Props) {
               )}
             </div>
 
-            {/* Tamamlanma rozetleri */}
             {isEditing && (
               <div className="flex items-center gap-2 text-xs font-sans text-ink-muted">
                 <span className="w-2 h-2 rounded-full bg-accent inline-block" />
@@ -75,7 +75,7 @@ export default async function CvBuilderPage({ searchParams }: Props) {
           </div>
         </div>
 
-        <CvForm initialData={resume} />
+        <CvForm initialData={resume} planInfo={planInfo} />
       </main>
     </>
   );

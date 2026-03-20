@@ -8,11 +8,13 @@ import type { ResumeData, PlanInfo } from "@/lib/types";
 import { deleteResume, duplicateResume } from "@/lib/actions/resume";
 import { getPlanBadge, FREE_AI_LIMIT } from "@/lib/plan";
 import AiPanel from "@/components/ai-panel";
+import UpgradeButton from "@/components/upgrade-button";
 
 interface DashboardShellProps {
   user: User;
   resumes: ResumeData[];
   planInfo: PlanInfo | null;
+  upgradeStatus?: string | null;
 }
 
 // ─── Tarih formatlama ─────────────────────────────────────────────────────────
@@ -263,7 +265,7 @@ function ResumeCard({ resume, onDelete, onView, isDuplicating, onDuplicate }: Re
 
 // ─── Ana Dashboard Bileşeni ───────────────────────────────────────────────────
 
-export default function DashboardShell({ user, resumes, planInfo }: DashboardShellProps) {
+export default function DashboardShell({ user, resumes, planInfo, upgradeStatus }: DashboardShellProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [deleteTarget, setDeleteTarget] = useState<ResumeData | null>(null);
@@ -310,6 +312,23 @@ export default function DashboardShell({ user, resumes, planInfo }: DashboardShe
 
   return (
     <main className="page-container py-12 md:py-16">
+
+      {/* Upgrade banner */}
+      {upgradeStatus === "success" && (
+        <div className="mb-6 flex items-center gap-3 px-5 py-4 rounded-xl bg-amber-50 border border-amber-200 font-sans text-sm text-amber-800">
+          <span className="text-lg">✦</span>
+          <div>
+            <strong className="font-sans">Pro plana hoş geldiniz!</strong>
+            <span className="ml-1">Artık sınırsız AI üretimi kullanabilirsiniz.</span>
+          </div>
+        </div>
+      )}
+      {upgradeStatus === "cancel" && (
+        <div className="mb-6 flex items-center gap-3 px-5 py-4 rounded-xl bg-paper border border-paper-border font-sans text-sm text-ink-muted">
+          <span>◇</span>
+          <span>Ödeme iptal edildi. İstediğin zaman tekrar deneyebilirsin.</span>
+        </div>
+      )}
 
       {/* Toast bildirimi */}
       {actionMsg && (
@@ -403,7 +422,7 @@ export default function DashboardShell({ user, resumes, planInfo }: DashboardShe
           <h2 className="font-display text-2xl text-ink">AI ile Oluştur</h2>
         </div>
         <div className="max-w-xl">
-          <AiPanel />
+          <AiPanel planInfo={planInfo} />
         </div>
       </section>
 
@@ -464,6 +483,11 @@ export default function DashboardShell({ user, resumes, planInfo }: DashboardShe
             Sınırsız AI üretimi aktif.
           </div>
         )}
+
+        {/* Upgrade / Portal butonu */}
+        <div className="mt-4 pt-4 border-t border-paper-border">
+          <UpgradeButton isPro={planInfo?.isProUser ?? false} />
+        </div>
       </div>
     </main>
   );

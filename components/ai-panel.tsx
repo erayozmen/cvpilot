@@ -2,113 +2,130 @@
 
 import { useState, useRef, useTransition, useCallback } from "react";
 import { generateAiContent, applyAiToResume } from "@/lib/actions/ai";
-import type { AiFeature } from "@/lib/types";
+import type { AiFeature, PlanInfo } from "@/lib/types";
+import { FREE_AI_LIMIT } from "@/lib/plan";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Tipler ───────────────────────────────────────────────────────────────────
 
 interface GeneratedResult {
   feature: AiFeature;
   content: string;
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+interface AiPanelProps {
+  planInfo?: PlanInfo | null;  // dashboard'dan geçirilebilir, opsiyonel
+  resumeId?: string;           // belirli bir CV'ye bağlamak için
+}
+
+// ─── Spinner ──────────────────────────────────────────────────────────────────
 
 function Spinner() {
   return (
-    <svg
-      className="animate-spin h-4 w-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
-      <circle
-        className="opacity-25"
-        cx="12" cy="12" r="10"
-        stroke="currentColor" strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-      />
+    <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
     </svg>
   );
 }
+
+// ─── Sonuç kartı ──────────────────────────────────────────────────────────────
 
 interface ResultCardProps {
   result: GeneratedResult;
   onApply: (feature: AiFeature, content: string) => void;
   onDiscard: () => void;
+  onRegenerate: (feature: AiFeature) => void;
   isApplying: boolean;
   applySuccess: boolean;
+  isRegenerating: boolean;
 }
 
 function ResultCard({
   result,
   onApply,
   onDiscard,
+  onRegenerate,
   isApplying,
   applySuccess,
+  isRegenerating,
 }: ResultCardProps) {
+  const [copied, setCopied] = useState(false);
+
   const featureLabels: Record<AiFeature, string> = {
-    summary: "Professional Summary",
-    work_experience: "Work Experience",
-    cover_letter: "Cover Letter",
+    summary: "Profesyonel Özet",
+    work_experience: "İş Deneyimi",
+    cover_letter: "Ön Yazı",
   };
 
-  const canApply = result.feature === "summary" || result.feature === "work_experience";
+  const canApply =
+    result.feature === "summary" || result.feature === "work_experience";
+
+  function handleCopy() {
+    navigator.clipboard.writeText(result.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   return (
     <div className="rounded-xl border border-accent/30 bg-accent/5 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-accent/20 bg-accent/10">
+      {/* Başlık */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-accent/20 bg-accent/10">
         <div className="flex items-center gap-2">
-          <span className="text-accent text-sm">✦</span>
-          <span className="font-sans text-xs font-normal tracking-widest uppercase text-accent">
+          <span className="text-accent text-xs">✦</span>
+          <span className="font-mono text-[10px] tracking-widest uppercase text-accent">
             AI — {featureLabels[result.feature]}
           </span>
         </div>
         <button
           onClick={onDiscard}
-          className="font-sans text-xs text-ink-muted hover:text-ink transition-colors px-2 py-1 rounded"
-          aria-label="Discard result"
+          className="font-sans text-xs text-ink-muted hover:text-ink transition-colors px-2 py-0.5 rounded"
         >
-          Discard ✕
+          ✕
         </button>
       </div>
 
-      {/* Content */}
-      <div className="p-5">
+      {/* İçerik */}
+      <div className="p-4">
         <pre className="font-sans text-sm text-ink leading-relaxed whitespace-pre-wrap break-words">
           {result.content}
         </pre>
       </div>
 
-      {/* Actions */}
-      <div className="px-5 pb-5 flex flex-wrap items-center gap-3">
-        {/* Copy button — works for all features */}
+      {/* Butonlar */}
+      <div className="px-4 pb-4 flex flex-wrap items-center gap-2">
+        {/* Kopyala */}
         <button
-          onClick={() => navigator.clipboard.writeText(result.content)}
-          className="btn-ghost text-xs px-4 py-2"
+          onClick={handleCopy}
+          className="btn-ghost text-xs px-3 py-1.5"
         >
-          Copy text
+          {copied ? "✓ Kopyalandı" : "Kopyala"}
         </button>
 
-        {/* Apply to CV — only for summary and work experience */}
+        {/* Yeniden üret */}
+        <button
+          onClick={() => onRegenerate(result.feature)}
+          disabled={isRegenerating}
+          className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50"
+        >
+          {isRegenerating && <Spinner />}
+          {isRegenerating ? "Üretiliyor…" : "Yeniden Üret"}
+        </button>
+
+        {/* CV'ye Uygula — sadece özet ve iş deneyimi için */}
         {canApply && (
           <>
             {applySuccess ? (
               <span className="inline-flex items-center gap-1.5 font-sans text-xs text-success">
-                <span>✓</span> Applied to your CV
+                ✓ CV'ye uygulandı
               </span>
             ) : (
               <button
                 onClick={() => onApply(result.feature, result.content)}
                 disabled={isApplying}
-                className="btn-accent text-xs px-5 py-2 flex items-center gap-2"
+                className="btn-accent text-xs px-4 py-1.5 flex items-center gap-1.5 disabled:opacity-50"
               >
                 {isApplying && <Spinner />}
-                {isApplying ? "Applying…" : "Apply to CV"}
+                {isApplying ? "Uygulanıyor…" : "CV'ye Uygula"}
               </button>
             )}
           </>
@@ -116,7 +133,7 @@ function ResultCard({
 
         {result.feature === "cover_letter" && (
           <span className="font-sans text-xs text-ink-muted">
-            Copy and paste this into your application.
+            Kopyalayıp başvuru formuna yapıştırabilirsin.
           </span>
         )}
       </div>
@@ -124,9 +141,39 @@ function ResultCard({
   );
 }
 
-// ─── Main AI Panel Component ──────────────────────────────────────────────────
+// ─── Kullanım göstergesi (panel içi mini versiyon) ────────────────────────────
 
-export default function AiPanel() {
+function UsageBadge({ planInfo }: { planInfo: PlanInfo }) {
+  if (planInfo.isProUser) {
+    return (
+      <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
+        ✦ Pro · Sınırsız
+      </span>
+    );
+  }
+  const pct = Math.min(100, (planInfo.aiUsageCount / FREE_AI_LIMIT) * 100);
+  const isLow = planInfo.remainingFreeUses <= 1;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-1 w-16 bg-paper-border rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${pct}%`,
+            background: isLow ? "#c4423a" : "#c4783a",
+          }}
+        />
+      </div>
+      <span className={`font-mono text-[10px] ${isLow ? "text-error" : "text-ink-muted"}`}>
+        {planInfo.remainingFreeUses}/{FREE_AI_LIMIT} kaldı
+      </span>
+    </div>
+  );
+}
+
+// ─── Ana bileşen ──────────────────────────────────────────────────────────────
+
+export default function AiPanel({ planInfo, resumeId }: AiPanelProps) {
   const [jobTitle, setJobTitle] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [activeFeature, setActiveFeature] = useState<AiFeature | null>(null);
@@ -136,13 +183,15 @@ export default function AiPanel() {
   const [isApplying, setIsApplying] = useState(false);
   const [applySuccess, setApplySuccess] = useState(false);
 
-  // Prevent double-clicks: track which feature is currently loading
   const loadingFeatureRef = useRef<AiFeature | null>(null);
+
+  // Limit dolu mu? (planInfo varsa kontrol et)
+  const limitReached = planInfo ? !planInfo.canUseAI : false;
 
   const handleGenerate = useCallback(
     (feature: AiFeature) => {
-      // Guard: already loading
       if (isPending || loadingFeatureRef.current) return;
+      if (limitReached) return;
 
       setError(null);
       setResult(null);
@@ -151,33 +200,38 @@ export default function AiPanel() {
       loadingFeatureRef.current = feature;
 
       startTransition(async () => {
-        const res = await generateAiContent(feature, jobTitle, companyName);
+        const res = await generateAiContent(
+          feature,
+          jobTitle,
+          companyName,
+          resumeId
+        );
         loadingFeatureRef.current = null;
 
         if (res.success && res.content) {
           setResult({ feature, content: res.content });
         } else {
-          setError(res.error ?? "Something went wrong. Please try again.");
+          setError(res.error ?? "Bir hata oluştu. Lütfen tekrar deneyin.");
           setActiveFeature(null);
         }
       });
     },
-    [isPending, jobTitle, companyName]
+    [isPending, jobTitle, companyName, resumeId, limitReached]
   );
 
   const handleApply = useCallback(
     async (feature: AiFeature, content: string) => {
       if (feature !== "summary" && feature !== "work_experience") return;
       setIsApplying(true);
-      const res = await applyAiToResume(feature, content);
+      const res = await applyAiToResume(feature, content, resumeId);
       setIsApplying(false);
       if (res.success) {
         setApplySuccess(true);
       } else {
-        setError(res.error ?? "Failed to apply content.");
+        setError(res.error ?? "İçerik uygulanamadı.");
       }
     },
-    []
+    [resumeId]
   );
 
   const handleDiscard = useCallback(() => {
@@ -187,71 +241,97 @@ export default function AiPanel() {
     setError(null);
   }, []);
 
-  const buttons: { feature: AiFeature; label: string; description: string; icon: string }[] = [
+  const buttons: {
+    feature: AiFeature;
+    label: string;
+    description: string;
+    icon: string;
+  }[] = [
     {
       feature: "summary",
-      label: "Generate Summary",
-      description: "Write a sharp 3–4 sentence professional summary",
+      label: "Özet Yaz",
+      description: "Güçlü 3–4 cümlelik profesyonel özet oluştur",
       icon: "✦",
     },
     {
       feature: "work_experience",
-      label: "Improve Experience",
-      description: "Rewrite bullets with stronger language and metrics",
+      label: "Deneyimi Güçlendir",
+      description: "Bullet point'leri daha etkili hale getir",
       icon: "◈",
     },
     {
       feature: "cover_letter",
-      label: "Cover Letter",
-      description: "Generate a tailored cover letter for this role",
+      label: "Ön Yazı Oluştur",
+      description: "Pozisyona özel kişiselleştirilmiş ön yazı",
       icon: "◇",
     },
   ];
 
+  const isDisabled = isPending || !jobTitle.trim() || limitReached;
+
   return (
-    <div className="card p-6 space-y-5">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-accent">✦</span>
-          <h3 className="font-display text-lg text-ink">AI Assistant</h3>
+    <div className="card p-5 space-y-4">
+      {/* Başlık */}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-accent text-sm">✦</span>
+            <h3 className="font-display text-base text-ink">AI Asistan</h3>
+          </div>
+          <p className="font-sans text-xs text-ink-muted">
+            GPT-4o ile özet, deneyim ve ön yazı üret.
+          </p>
         </div>
-        <p className="font-sans text-xs text-ink-muted leading-relaxed">
-          Powered by GPT-4o. Enter a job title to personalise the output.
-        </p>
+        {planInfo && <UsageBadge planInfo={planInfo} />}
       </div>
 
-      {/* Inputs */}
-      <div className="space-y-3">
+      {/* Limit uyarısı */}
+      {limitReached && (
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 font-sans text-xs text-error">
+          <span className="shrink-0 mt-0.5">⚠</span>
+          <span>
+            Aylık ücretsiz AI limitine ulaştınız.{" "}
+            <strong>Pro plana geçerek</strong> sınırsız kullanabilirsiniz.
+          </span>
+        </div>
+      )}
+
+      {/* Giriş alanları */}
+      <div className="space-y-2.5">
         <div>
           <label htmlFor="ai-job-title" className="label-text">
-            Target job title <span className="text-accent">*</span>
+            Hedef pozisyon <span className="text-accent">*</span>
           </label>
           <input
             id="ai-job-title"
             type="text"
             value={jobTitle}
             onChange={(e) => setJobTitle(e.target.value)}
-            placeholder="e.g. Senior Product Manager"
+            placeholder="örn. Kıdemli Yazılım Mühendisi"
             className="input-field"
+            disabled={limitReached}
           />
         </div>
         <div>
           <label htmlFor="ai-company" className="label-text">
-            Company name <span className="text-ink-muted font-sans normal-case tracking-normal">(optional)</span>
+            Şirket adı{" "}
+            <span className="text-ink-muted font-sans normal-case tracking-normal">
+              (opsiyonel)
+            </span>
           </label>
           <input
             id="ai-company"
             type="text"
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
-            placeholder="e.g. Stripe"
+            placeholder="örn. Türk Telekom, Trendyol"
             className="input-field"
+            disabled={limitReached}
           />
         </div>
       </div>
 
-      {/* Action buttons */}
+      {/* Aksiyon butonları */}
       <div className="space-y-2">
         {buttons.map((btn) => {
           const isThisLoading = isPending && activeFeature === btn.feature;
@@ -259,12 +339,11 @@ export default function AiPanel() {
             <button
               key={btn.feature}
               onClick={() => handleGenerate(btn.feature)}
-              disabled={isPending || !jobTitle.trim()}
-              className={`w-full flex items-start gap-3 p-4 rounded-lg border transition-all duration-150 text-left
-                ${
-                  isPending && activeFeature === btn.feature
-                    ? "border-accent/40 bg-accent/10 cursor-wait"
-                    : "border-paper-border bg-paper hover:border-ink/30 hover:bg-paper-warm cursor-pointer"
+              disabled={isDisabled}
+              className={`w-full flex items-start gap-3 p-3.5 rounded-lg border transition-all duration-150 text-left
+                ${isThisLoading
+                  ? "border-accent/40 bg-accent/10 cursor-wait"
+                  : "border-paper-border bg-paper hover:border-ink/30 hover:bg-paper-warm"
                 }
                 disabled:opacity-50 disabled:cursor-not-allowed`}
             >
@@ -273,7 +352,7 @@ export default function AiPanel() {
               </span>
               <span>
                 <span className="block font-sans text-sm text-ink">
-                  {isThisLoading ? "Generating…" : btn.label}
+                  {isThisLoading ? "Üretiliyor…" : btn.label}
                 </span>
                 <span className="block font-sans text-xs text-ink-muted mt-0.5">
                   {btn.description}
@@ -284,35 +363,37 @@ export default function AiPanel() {
         })}
       </div>
 
-      {/* No job title hint */}
-      {!jobTitle.trim() && (
+      {/* Pozisyon girilmemişse ipucu */}
+      {!jobTitle.trim() && !limitReached && (
         <p className="font-sans text-xs text-ink-muted text-center">
-          Enter a job title above to enable AI generation.
+          Üretim yapmak için hedef pozisyon girin.
         </p>
       )}
 
-      {/* Error */}
+      {/* Hata mesajı */}
       {error && (
-        <div className="flex items-start gap-2.5 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-error text-xs font-sans">
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-error text-xs font-sans">
           <span className="mt-0.5 shrink-0">⚠</span>
           <span>{error}</span>
         </div>
       )}
 
-      {/* Result */}
+      {/* Sonuç kartı */}
       {result && (
         <ResultCard
           result={result}
           onApply={handleApply}
           onDiscard={handleDiscard}
+          onRegenerate={handleGenerate}
           isApplying={isApplying}
           applySuccess={applySuccess}
+          isRegenerating={isPending && activeFeature === result.feature}
         />
       )}
 
-      {/* Disclaimer */}
-      <p className="font-sans text-[11px] text-ink-muted/70 leading-relaxed border-t border-paper-border pt-4">
-        AI output may be inaccurate. Always review before applying to your CV.
+      {/* Uyarı notu */}
+      <p className="font-sans text-[10px] text-ink-muted/60 leading-relaxed border-t border-paper-border pt-3">
+        AI çıktıları hatalı olabilir. CV'ye uygulamadan önce gözden geçirin.
       </p>
     </div>
   );
