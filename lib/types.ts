@@ -50,3 +50,25 @@ export interface AiGenerateResult {
   content?: string;
   error?: string;
 }
+
+// ─── Plan & Kullanım ──────────────────────────────────────────────────────────
+
+export type UserPlan = "free" | "pro";
+
+export interface UserProfile {
+  id: string;               // auth.users.id ile aynı
+  plan: UserPlan;
+  ai_usage_count: number;   // toplam AI kullanım sayısı
+  ai_usage_reset_at: string; // aylık sıfırlama tarihi
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlanInfo {
+  plan: UserPlan;
+  aiUsageCount: number;
+  aiUsageResetAt: string;
+  remainingFreeUses: number;
+  isProUser: boolean;
+  canUseAI: boolean;
+}

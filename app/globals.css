@@ -110,3 +110,23 @@ h1, h2, h3, h4 {
     @apply font-display text-2xl text-ink;
   }
 }
+
+/* ─── Print / PDF ────────────────────────────────────────────────────────────── */
+@media print {
+  /* Navbar, toolbar ve arka planı gizle */
+  header,
+  nav,
+  .sticky {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  #resume-document {
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+}

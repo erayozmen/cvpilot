@@ -145,7 +145,7 @@ export default function ResumePreview({ resume }: ResumePreviewProps) {
      */
     <div
       id="resume-document"
-      className="bg-white mx-auto max-w-[794px] min-h-[1123px] shadow-xl"
+      className="bg-white mx-auto max-w-[794px] shadow-xl print:shadow-none print:max-w-full"
       style={{
         fontFamily: "'Georgia', 'Times New Roman', serif",
         color: "#1a1a1a",

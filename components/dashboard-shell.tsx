@@ -4,13 +4,15 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
-import type { ResumeData } from "@/lib/types";
+import type { ResumeData, PlanInfo } from "@/lib/types";
 import { deleteResume, duplicateResume } from "@/lib/actions/resume";
+import { getPlanBadge, FREE_AI_LIMIT } from "@/lib/plan";
 import AiPanel from "@/components/ai-panel";
 
 interface DashboardShellProps {
   user: User;
   resumes: ResumeData[];
+  planInfo: PlanInfo | null;
 }
 
 // ─── Tarih formatlama ─────────────────────────────────────────────────────────
@@ -261,7 +263,7 @@ function ResumeCard({ resume, onDelete, onView, isDuplicating, onDuplicate }: Re
 
 // ─── Ana Dashboard Bileşeni ───────────────────────────────────────────────────
 
-export default function DashboardShell({ user, resumes }: DashboardShellProps) {
+export default function DashboardShell({ user, resumes, planInfo }: DashboardShellProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [deleteTarget, setDeleteTarget] = useState<ResumeData | null>(null);
@@ -405,18 +407,63 @@ export default function DashboardShell({ user, resumes }: DashboardShellProps) {
         </div>
       </section>
 
-      {/* ── Hesap bilgisi ── */}
-      <div className="card p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <p className="font-sans text-xs text-ink-muted tracking-widest uppercase mb-1">
-            Giriş yapılan hesap
-          </p>
-          <p className="font-sans text-sm text-ink">{user.email}</p>
+      {/* ── Hesap & Plan bilgisi ── */}
+      <div className="card p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-paper-border">
+          <div>
+            <p className="font-sans text-xs text-ink-muted tracking-widest uppercase mb-1">
+              Giriş yapılan hesap
+            </p>
+            <p className="font-sans text-sm text-ink">{user.email}</p>
+          </div>
+          {/* Plan rozeti */}
+          {planInfo && (() => {
+            const badge = getPlanBadge(planInfo.plan);
+            return (
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-mono text-[11px] self-start sm:self-auto ${badge.color} ${badge.bg} ${badge.border}`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-current inline-block opacity-70" />
+                {badge.label} Plan
+              </span>
+            );
+          })()}
         </div>
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 border border-success/20 font-mono text-[11px] text-success self-start sm:self-auto">
-          <span className="w-1.5 h-1.5 rounded-full bg-success inline-block" />
-          Aktif hesap
-        </span>
+
+        {/* AI Kullanım Göstergesi */}
+        {planInfo && !planInfo.isProUser && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="font-sans text-xs text-ink-muted">Aylık AI kullanımı</span>
+              <span className="font-mono text-xs text-ink">
+                {planInfo.aiUsageCount} / {FREE_AI_LIMIT}
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-paper-border rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${Math.min(100, (planInfo.aiUsageCount / FREE_AI_LIMIT) * 100)}%`,
+                  background: planInfo.remainingFreeUses === 0 ? "#c4423a" : "#c4783a",
+                }}
+              />
+            </div>
+            {planInfo.remainingFreeUses === 0 ? (
+              <p className="mt-1.5 font-sans text-xs text-error">
+                Aylık limitine ulaştın. Pro plana geçerek devam edebilirsin.
+              </p>
+            ) : (
+              <p className="mt-1.5 font-sans text-xs text-ink-muted">
+                {planInfo.remainingFreeUses} kullanım hakkı kaldı.
+              </p>
+            )}
+          </div>
+        )}
+
+        {planInfo?.isProUser && (
+          <div className="flex items-center gap-2 font-sans text-xs text-ink-muted">
+            <span className="text-amber-600">✦</span>
+            Sınırsız AI üretimi aktif.
+          </div>
+        )}
       </div>
     </main>
   );

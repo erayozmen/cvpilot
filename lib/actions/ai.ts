@@ -2,6 +2,8 @@
 
 import OpenAI from "openai";
 import { createClient } from "@/lib/supabase-server";
+import { getOrCreateProfile, incrementAiUsage } from "@/lib/actions/profile";
+import { canUseAI } from "@/lib/plan";
 import type { AiFeature, AiGenerateResult, ResumeData } from "@/lib/types";
 
 // ─── OpenAI client (server-only) ─────────────────────────────────────────────
@@ -166,6 +168,17 @@ export async function generateAiContent(
     };
   }
 
+  // 2b. Plan & kullanım kontrolü
+  // Şu an yumuşak kontrol — engellemez, sadece uyarır.
+  // OpenAI entegre edilince canUseAI() false dönünce hard block eklenecek.
+  const profile = await getOrCreateProfile();
+  if (profile && !canUseAI(profile.plan, profile.ai_usage_count)) {
+    return {
+      success: false,
+      error: "Aylık ücretsiz AI kullanım limitine ulaştınız. Pro plana geçerek sınırsız kullanabilirsiniz.",
+    };
+  }
+
   // 3. Input validation
   if (!jobTitle?.trim()) {
     return { success: false, error: "Please enter a target job title first." };
@@ -208,6 +221,8 @@ export async function generateAiContent(
   // 6. Call OpenAI
   try {
     const content = await generateWithOpenAI(prompt);
+    // Başarılı üretimde kullanım sayısını artır (hata olsa da devam et)
+    await incrementAiUsage().catch((e) => console.error("incrementAiUsage hatası:", e));
     return { success: true, content };
   } catch (err) {
     console.error("OpenAI error:", err);
